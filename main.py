@@ -48,7 +48,7 @@ class RecordMacro(threading.Thread):
             time.sleep(0.001)
 
     def mouse_on_move(self, x, y):
-        if self.delay_mouse_pos <= 20:
+        if self.delay_mouse_pos <= 2:
             self.delay_mouse_pos += 1
             return
 
@@ -67,7 +67,6 @@ class RecordMacro(threading.Thread):
     def mouse_on_scroll(self, x, y, dx, dy):
         for item in macro_record:
             print(item)
-        return
 
     def kb_on_press(self, key):
 
@@ -97,6 +96,8 @@ class RecordMacro(threading.Thread):
         print("Stopping the macro recording...")
         if self.mouse_active and self.mouse_listener.is_alive():
             print("Stopping mouse listener")
+            for i in range(1, 4, 1):
+                macro_record.pop(len(macro_record)-i)
             self.mouse_listener.stop()
         if self.keyboard_active and self.keyboard_listener.is_alive():
             print("Stopping keyboard listener")
@@ -118,7 +119,6 @@ class ReplayMacro(threading.Thread):
         self.daemon = True
 
     def run(self):
-        global macro_working
 
         self.keyboard_controller = keyboard.Controller()
         self.mouse_controller = mouse.Controller()
@@ -382,7 +382,7 @@ class MainWindow(QMainWindow):
         self.replay_button.setText("Replay")
 
     def ReplayButton(self):
-        if len(macro_record) >= 0:
+        if len(macro_record) > 0:
             for i, item in enumerate(threads_array):
                 if item[0] == "ThreadReplay":
                     if not self.cancel_replay:

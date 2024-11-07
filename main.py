@@ -8,7 +8,7 @@ import time
 import threading
 
 class RecordMacro(threading.Thread):
-    def __init__(self, keyboard, mouse):
+    def __init__(self, parent, keyboard, mouse):
         super().__init__()
         global macro_record
 
@@ -16,31 +16,39 @@ class RecordMacro(threading.Thread):
         self.running = True
 
         self.delay = 0
-        self.delay_mouse_pos = 0
+        #self.delay_mouse_pos = 0
 
         self.keyboard_active = keyboard
         self.mouse_active = mouse
-        
-        self.key_pressed = set()
+        self.parent = parent
 
     def run(self):
-        print(f"Starting record macro thread with kb: {self.keyboard_active} - mouse: {self.mouse_active}")
-        if self.mouse_active:
-            self.mouse_listener = mouse.Listener(
-                on_move=self.mouse_on_move,
-                on_click=self.mouse_on_click,
-                on_scroll=self.mouse_on_scroll
-            )
-            self.mouse_listener.start()
+        
+        for i in range(3, 0, -1):
+            if self.running:
+                self.parent.record_button.setText(f"Recording in {i}...")
+                time.sleep(1)
 
-        if self.keyboard_active:
-            self.keyboard_listener = keyboard.Listener(
-                on_press=self.kb_on_press,
-                on_release=self.kb_on_release
-            )
-            self.keyboard_listener.start()
+        if self.running:
+            self.parent.record_button.setText("Recording...")
 
-        self.timer_thread = threading.Thread(target=self.delay_timer, daemon=True).start()
+            print(f"Starting record macro thread with kb: {self.keyboard_active} - mouse: {self.mouse_active}")
+            if self.mouse_active:
+                self.mouse_listener = mouse.Listener(
+                    on_move=self.mouse_on_move,
+                    on_click=self.mouse_on_click,
+                    on_scroll=self.mouse_on_scroll
+                )
+                self.mouse_listener.start()
+
+            if self.keyboard_active:
+                self.keyboard_listener = keyboard.Listener(
+                    on_press=self.kb_on_press,
+                    on_release=self.kb_on_release
+                )
+                self.keyboard_listener.start()
+
+            self.timer_thread = threading.Thread(target=self.delay_timer, daemon=True).start()
 
     def delay_timer(self):
         while self.running:
@@ -48,10 +56,6 @@ class RecordMacro(threading.Thread):
             time.sleep(0.001)
 
     def mouse_on_move(self, x, y):
-        if self.delay_mouse_pos <= 2:
-            self.delay_mouse_pos += 1
-            return
-
         macro_record.append(["Delay", self.delay])
         macro_record.append(["Move", (x, y)])
         self.delay_mouse_pos = 0
@@ -70,40 +74,39 @@ class RecordMacro(threading.Thread):
 
     def kb_on_press(self, key):
 
-        if key not in self.key_pressed:
-            macro_record.append(["Delay", self.delay])
-            try:
-                macro_record.append(["Press", key.char])
-            except AttributeError:
-                macro_record.append(["Press", key])
+        macro_record.append(["Delay", self.delay])
+        try:
+            macro_record.append(["Press", key.char])
+        except AttributeError:
+            macro_record.append(["Press", key])
 
-            self.delay = 0
-            self.key_pressed.add(key)
+        self.delay = 0
 
     def kb_on_release(self, key):
 
-        if key in self.key_pressed:
-            macro_record.append(["Delay", self.delay])
-            try:
-                macro_record.append(["Release", key.char])
-            except AttributeError:
-                macro_record.append(["Release", key])
+        macro_record.append(["Delay", self.delay])
+        try:
+            macro_record.append(["Release", key.char])
+        except AttributeError:
+            macro_record.append(["Release", key])
 
-            self.delay = 0
-            self.key_pressed.remove(key)
+        self.delay = 0
 
     def stop(self):
         print("Stopping the macro recording...")
-        if self.mouse_active and self.mouse_listener.is_alive():
-            print("Stopping mouse listener")
-            for i in range(1, 4, 1):
-                macro_record.pop(len(macro_record)-i)
-            self.mouse_listener.stop()
-        if self.keyboard_active and self.keyboard_listener.is_alive():
-            print("Stopping keyboard listener")
-            self.keyboard_listener.stop()
-        if self.timer_thread and self.timer_thread.is_alive():
-            self.timer_thread.stop()
+        try:
+            if self.mouse_active and self.mouse_listener.is_alive():
+                print("Stopping mouse listener")
+                for i in range(1, 4, 1):
+                    macro_record.pop(len(macro_record)-i)
+                self.mouse_listener.stop()
+            if self.keyboard_active and self.keyboard_listener.is_alive():
+                print("Stopping keyboard listener")
+                self.keyboard_listener.stop()
+            if self.timer_thread and self.timer_thread.is_alive():
+                self.timer_thread.stop()
+        except AttributeError:
+            pass
         self.delay = 0
         self.running = False
 
@@ -357,7 +360,6 @@ class MainWindow(QMainWindow):
             self.record_button.setText("Record")
             return
         
-        self.record_button.setText("Recording...")
         self.replay_button.setText("Replay")
 
         for checkbox in self.checkboxs:
@@ -371,7 +373,7 @@ class MainWindow(QMainWindow):
                 print("mouse true")
                 mouse_check = True
 
-        all_record = RecordMacro(keyboard_check, mouse_check)
+        all_record = RecordMacro(self, keyboard_check, mouse_check)
         threads_array.append(["Macro", all_record])
         all_record.start()
 

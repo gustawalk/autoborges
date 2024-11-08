@@ -4,8 +4,45 @@ from pynput.mouse import Button
 from pynput.keyboard import Key
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import QIcon
+from PyQt5 import QtCore
 import time
 import threading
+import os
+import pathlib
+import json
+
+main_path = f"{pathlib.Path.home()}/BorgeBOT"
+config_file = "config.json"
+
+def create_default_folders():
+    if not os.path.exists(main_path):
+        print("Creating path")
+        os.mkdir(main_path)
+
+def create_config_json():
+    config_path = f"{main_path}/{config_file}"
+
+    if os.path.exists(config_path):
+        return
+
+    data = {
+        "AutoClicker": {
+            "ClicksDelay": 0.0001,
+            "ActionKey": "Key.f9"
+        }
+    }
+
+    with open(config_path, 'w') as file:
+        json.dump(data, file)
+
+def load_config():
+    with open(f"{main_path}/{config_file}", 'r') as file:
+        config = json.load(file)
+    return config
+
+def save_config(config):
+    with open(f"{main_path}/{config_file}", 'w') as file:
+        json.dump(config, file, indent=4)
 
 class RecordMacro(threading.Thread):
     def __init__(self, parent, keyboard, mouse):
@@ -187,8 +224,13 @@ class AutoClicker(threading.Thread):
         self.running = True
         self.daemon = True
 
+        self.config_json = json.load(open(f"{main_path}/{config_file}", 'r'))
+        
+        self.action_key = self.config_json['AutoClicker']['ActionKey']
+        self.click_delay = self.config_json['AutoClicker']['ClicksDelay']
+
     def run(self):
-        self.parent.autoclicker_button.setText("AutoClicker (OFF) - F9")        
+        self.parent.autoclicker_button.setText(f"AutoClicker (OFF) - {str(self.action_key.replace(".", '').replace('Key', '').strip("'")).upper()}")        
         self.listener = keyboard.Listener(
             on_press=self.on_press,
             on_release=self.on_release
@@ -201,17 +243,21 @@ class AutoClicker(threading.Thread):
         while self.running:
             while self.autoclicker_active:
                 mouse_controller.click(Button.left)
-                time.sleep(0.0001)
+                time.sleep(self.click_delay)
             
 
     def on_press(self, key):
-        if key == Key.f9:
-            self.autoclicker_active = not self.autoclicker_active
+        try:
+            if key.char == eval(self.action_key):
+                self.autoclicker_active = not self.autoclicker_active
+        except AttributeError:
+            if key == eval(self.action_key):
+                self.autoclicker_active = not self.autoclicker_active
 
-            if self.autoclicker_active:
-                self.parent.autoclicker_button.setText("AutoClicker (ON) - F9")
-            else:
-                self.parent.autoclicker_button.setText("AutoClicker (OFF) - F9")         
+        if self.autoclicker_active:
+            self.parent.autoclicker_button.setText(f"AutoClicker (ON) - {str(self.action_key.replace(".", '').replace('Key', '').strip("'")).upper()}")
+        else:
+            self.parent.autoclicker_button.setText(f"AutoClicker (OFF) - {str(self.action_key.replace(".", '').replace('Key', '').strip("'")).upper()}")
 
     def on_release(self, key):
         return
@@ -332,6 +378,12 @@ class MainWindow(QMainWindow):
         self.test_macro.setFixedHeight(100)
         self.layout.addWidget(self.test_macro)
 
+        self.advanced_config_button = QPushButton(self, text="Advanced Config")
+        self.advanced_config_button.setStyleSheet(main_style)
+        self.advanced_config_button.clicked.connect(self.ConfigButton)
+        self.advanced_config_button.setFixedSize(200, 40)
+        self.layout.addWidget(self.advanced_config_button)
+
         self.show()
 
     def AutoClickerButton(self):
@@ -402,13 +454,159 @@ class MainWindow(QMainWindow):
             replay_thread.start()
         else:
             self.replay_button.setText("Replay (Empty)")
+    
+    def ConfigButton(self):
+        tela = ConfigWindow(self)
+        tela.exec_()
 
     def closeEvent(self, event):
         for _, thread in threads_array:
             thread.stop()
         event.accept()
 
+class ConfigWindow(QDialog):
+    def __init__(self, parent, aw = 500, ah = 500):
+        super().__init__()
+
+        self.aw = aw
+        self.ah = ah
+
+        self.setFixedSize(aw, ah)
+        self.setGeometry(50, 50, self.aw, self.ah)
+
+        global threads_array
+
+        for item in threads_array:
+            if item[0] == "AutoClicker":
+                parent.AutoClickerButton()
+
+        stylesheet = """
+        ConfigWindow {
+            background-image: url("gedagedigedagedao.png"); 
+            background-position: center;
+        }
+
+        QLabel{
+            font-size: 18px;
+            color: #f7f7f7;
+            font-weight: bold;
+            padding: 3px;
+            background-color: #1e471f;
+            border-radius: 15px;
+        }
+
+        QPushButton {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            font-size: 18px;
+            border-radius: 8px;
+        }
+        QPushButton:hover {
+            background-color: #2c702f;
+        }
+        QPushButton:pressed {
+            background-color: #163a17;
+        }
+
+        QTextEdit {
+            font-size: 14px;
+            color: #706464;
+            background-color: #f0f0f0;
+            border: 2px solid #4CAF50;
+            border-radius: 10px;
+            selection-background-color: #A5D6A7;
+        }
+
+        #title{
+            color: #c5ffca;
+        }
+        """
+
+        self.setWindowTitle("Advanced Configuration")
+        self.setGeometry(100, 100, 400, 300)
+
+        self.config_json = load_config()
+        self.action_key = self.config_json['AutoClicker']['ActionKey']
+        self.delay_autoclicker = self.config_json['AutoClicker']['ClicksDelay']
+        self.new_key = None
+        self.new_delay = None
+
+        self.layout = QVBoxLayout()
+
+        self.autoclickertext = QLabel(text="AutoClicker")
+        self.autoclickertext.setObjectName("title")
+        self.autoclickertext.setFixedSize(150, 40)
+        self.autoclickertext.setAlignment(QtCore.Qt.AlignCenter)
+        self.layout.addWidget(self.autoclickertext)
+
+        h_layout = QHBoxLayout()
+        
+        self.action_key_autoclicker = QLabel(text="Key: " + str(self.action_key.replace(".", '').replace('Key', '').strip("'")).upper())
+        self.action_key_autoclicker.setFixedSize(80, 40)
+        self.action_key_autoclicker.setAlignment(QtCore.Qt.AlignCenter)
+        h_layout.addWidget(self.action_key_autoclicker)
+
+        self.change_action_key = QPushButton(text="Change Action Key")
+        self.change_action_key.clicked.connect(self.ChangeActionKeyAC)
+        h_layout.addWidget(self.change_action_key)
+
+        self.layout.addLayout(h_layout)
+
+        h_layout = QHBoxLayout()
+        
+        self.delay_label = QLabel(text="Clicks delay")
+        h_layout.addWidget(self.delay_label)
+
+        self.delay_range = QTextEdit()
+        self.delay_range.setPlaceholderText(str(self.delay_autoclicker))
+        self.delay_range.setFixedHeight(35)
+        self.delay_range.setFixedWidth(200)
+        h_layout.addWidget(self.delay_range)
+
+        self.layout.addLayout(h_layout)
+
+        self.save_button = QPushButton("Salvar", self)
+        self.save_button.clicked.connect(self.save_config)
+        self.layout.addWidget(self.save_button)
+
+        self.setLayout(self.layout)
+
+        self.setStyleSheet(stylesheet)
+
+    def ChangeActionKeyAC(self):
+        self.action_key_autoclicker.setText("...")
+
+        self.keyboard_listener = keyboard.Listener(
+                    on_press=self.kb_on_press
+                )
+        self.keyboard_listener.start()
+
+    def kb_on_press(self, key):
+        self.new_key = str(key)
+        self.action_key_autoclicker.setText("Key: " +str(self.new_key.replace(".", '').replace('Key', '').strip("'")).upper())
+        self.keyboard_listener.stop()
+
+    def save_config(self):
+        
+        try:
+            value = float(self.delay_range.toPlainText())
+            self.new_delay = value
+        except ValueError:
+            pass
+
+        if self.new_key != None:
+            self.config_json["AutoClicker"]["ActionKey"] = self.new_key
+        if self.new_delay != None:
+            self.config_json["AutoClicker"]["ClicksDelay"] = self.new_delay
+
+        save_config(self.config_json)
+        self.accept()
+
 if __name__ == '__main__':
+    create_default_folders()
+    create_config_json()
     stylesheet = """
     MainWindow {
         background-image: url("autoborges.png"); 

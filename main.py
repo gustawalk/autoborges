@@ -7,6 +7,7 @@ from PyQt5.QtGui import QIcon
 from PyQt5 import QtCore
 import time
 import threading
+from functools import partial
 import os
 import pathlib
 import json
@@ -16,7 +17,6 @@ config_file = "config.json"
 
 def create_default_folders():
     if not os.path.exists(main_path):
-        print("Creating path")
         os.mkdir(main_path)
 
 def create_config_json():
@@ -106,6 +106,7 @@ class RecordMacro(threading.Thread):
         self.delay = 0
     
     def mouse_on_scroll(self, x, y, dx, dy):
+        #use for debug
         for item in macro_record:
             print(item)
 
@@ -134,8 +135,6 @@ class RecordMacro(threading.Thread):
         try:
             if self.mouse_active and self.mouse_listener.is_alive():
                 print("Stopping mouse listener")
-                for i in range(1, 4, 1):
-                    macro_record.pop(len(macro_record)-i)
                 self.mouse_listener.stop()
             if self.keyboard_active and self.keyboard_listener.is_alive():
                 print("Stopping keyboard listener")
@@ -366,6 +365,11 @@ class MainWindow(QMainWindow):
         self.clear_macro_button.clicked.connect(self.ClearMacro)
         self.layout.addWidget(self.clear_macro_button)
 
+        self.edit_macro_button = QPushButton(self, text="Edit Macro")
+        self.edit_macro_button.setStyleSheet(main_style)
+        self.edit_macro_button.clicked.connect(self.EditMacroButton)
+        self.layout.addWidget(self.edit_macro_button)
+
         self.replay_button = QPushButton(self, text="Replay")
         self.replay_button.setStyleSheet(main_style)
         self.replay_button.clicked.connect(self.ReplayButton)
@@ -375,7 +379,7 @@ class MainWindow(QMainWindow):
         self.test_macro = QPlainTextEdit(self)
         self.test_macro.setPlaceholderText("Try your macro here!")
         self.test_macro.setStyleSheet(main_style)
-        self.test_macro.setFixedHeight(100)
+        self.test_macro.setFixedHeight(50)
         self.layout.addWidget(self.test_macro)
 
         self.advanced_config_button = QPushButton(self, text="Advanced Config")
@@ -385,6 +389,10 @@ class MainWindow(QMainWindow):
         self.layout.addWidget(self.advanced_config_button)
 
         self.show()
+
+    def EditMacroButton(self):
+        telaedit = EditMacroWindow()
+        telaedit.exec_()
 
     def AutoClickerButton(self):
         for i, item in enumerate(threads_array):
@@ -464,6 +472,111 @@ class MainWindow(QMainWindow):
             thread.stop()
         event.accept()
 
+class EditMacroWindow(QDialog):
+    def __init__(self):
+        super().__init__()
+
+        global macro_record
+        self.index_to_remove = set()
+        
+        self.setWindowTitle("Edit Your Macro")
+        self.setWindowIcon(QIcon('autoborges.png'))
+        self.setGeometry(300, 300, 400, 300)
+        self.setFixedSize(1000, 600)
+
+        self.setStyleSheet("""
+            EditMacroWindow {
+                background-image: url("mimosacomnarget.jpg"); 
+                background-repeat: no-repeat; 
+                background-position: center;
+            }
+
+            QScrollArea {
+                background: transparent;
+            }
+
+            QLabel {
+                font-size: 18px;
+                font-weight: bold;
+                padding: 8px;
+                border-radius: 5px;
+            }
+            
+            QPushButton {
+                padding: 10px;
+                font-size: 14px;
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 5px;
+            }
+
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+
+            #stay{
+                color: #ffffff;
+                background-color: #30ca44;
+            }
+            #remove{
+                color: #ff0000;
+                background-color: #007c1b;
+            }
+
+            #stay:hover{
+                color: #2cd450
+            }
+            #remove:hover{
+                color: #007a1b
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+
+        scroll_area = QScrollArea(self)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.viewport().setStyleSheet("background: transparent;")
+
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+
+        for i, item in enumerate(macro_record):
+            action = item[0]
+            value = item[1]
+
+            label = QLabel(f"{action}: {value}")
+            label.mousePressEvent = partial(self.item_clicked, i, label)
+            label.setObjectName("stay")
+            content_layout.addWidget(label)
+
+        scroll_area.setWidget(content_widget)
+        layout.addWidget(scroll_area)
+
+        self.save_button = QPushButton(self, text="Save")
+        self.save_button.clicked.connect(self.saveButton)
+        layout.addWidget(self.save_button)
+
+    def saveButton(self):
+        for i, index in enumerate(self.index_to_remove):
+            macro_record.pop(index-i)
+        self.closeWindow()
+
+    def item_clicked(self, item, label_obj, event):
+        if item in self.index_to_remove:
+            label_obj.setObjectName("stay")
+            self.index_to_remove.remove(item)
+        else:
+            label_obj.setObjectName("remove")
+            self.index_to_remove.add(item)
+        
+        label_obj.style().unpolish(label_obj)
+        label_obj.style().polish(label_obj)
+
+    def closeWindow(self):
+        self.accept()
+
+
 class ConfigWindow(QDialog):
     def __init__(self, parent, aw = 500, ah = 500):
         super().__init__()
@@ -473,6 +586,7 @@ class ConfigWindow(QDialog):
 
         self.setFixedSize(aw, ah)
         self.setGeometry(50, 50, self.aw, self.ah)
+        self.setWindowIcon(QIcon('autoborges.png'))
 
         global threads_array
 

@@ -53,7 +53,6 @@ class RecordMacro(threading.Thread):
         self.running = True
 
         self.delay = 0
-        #self.delay_mouse_pos = 0
 
         self.keyboard_active = keyboard
         self.mouse_active = mouse
@@ -93,42 +92,43 @@ class RecordMacro(threading.Thread):
             time.sleep(0.001)
 
     def mouse_on_move(self, x, y):
-        macro_record.append(["Delay", self.delay])
-        macro_record.append(["Move", (x, y)])
-        self.delay_mouse_pos = 0
-        self.delay = 0
+        if self.running:
+            macro_record.append(["Delay", self.delay])
+            macro_record.append(["Move", (x, y)])
+            self.delay_mouse_pos = 0
+            self.delay = 0
 
     
     def mouse_on_click(self, x, y, button, pressed):
+        if self.running:
+            macro_record.append(["Delay", self.delay])
+            macro_record.append(["Click", (str(button), pressed)])
+            self.delay = 0
         
-        macro_record.append(["Delay", self.delay])
-        macro_record.append(["Click", (str(button), pressed)])
-        self.delay = 0
-    
     def mouse_on_scroll(self, x, y, dx, dy):
         #use for debug
         for item in macro_record:
             print(item)
 
     def kb_on_press(self, key):
+        if self.running:
+            macro_record.append(["Delay", self.delay])
+            try:
+                macro_record.append(["Press", key.char])
+            except AttributeError:
+                macro_record.append(["Press", key])
 
-        macro_record.append(["Delay", self.delay])
-        try:
-            macro_record.append(["Press", key.char])
-        except AttributeError:
-            macro_record.append(["Press", key])
-
-        self.delay = 0
+            self.delay = 0
 
     def kb_on_release(self, key):
+        if self.running:
+            macro_record.append(["Delay", self.delay])
+            try:
+                macro_record.append(["Release", key.char])
+            except AttributeError:
+                macro_record.append(["Release", key])
 
-        macro_record.append(["Delay", self.delay])
-        try:
-            macro_record.append(["Release", key.char])
-        except AttributeError:
-            macro_record.append(["Release", key])
-
-        self.delay = 0
+            self.delay = 0
 
     def stop(self):
         print("Stopping the macro recording...")
@@ -147,24 +147,27 @@ class RecordMacro(threading.Thread):
         self.running = False
 
 class ReplayMacro(threading.Thread):
-    def __init__(self, parent):
+    def __init__(self, parent, repeat):
         super().__init__()
 
         global threads_array
         global macro_record
+        global macro_working
 
         self.running = True
         self.parent = parent
         self.daemon = True
+        self.macro_working = True
+        self.repeat = repeat
 
     def run(self):
-
-        self.keyboard_controller = keyboard.Controller()
-        self.mouse_controller = mouse.Controller()
 
         for i in range(3, 0, -1):
             self.parent.replay_button.setText(f"Recreating Macro in {i}")
             time.sleep(1)
+        
+        self.keyboard_controller = keyboard.Controller()
+        self.mouse_controller = mouse.Controller()
 
         self.parent.replay_button.setText("Recreating Macro...")
 
@@ -172,33 +175,34 @@ class ReplayMacro(threading.Thread):
             self.parent.replay_button.setText("Replay")
             return
         
-        for item in macro_record:
-            action = item[0]
-            value = item[1]
+        for _ in range(self.repeat):
+            for item in macro_record:
+                action = item[0]
+                value = item[1]
 
-            if action == "Delay":
-                time.sleep(value/1_000)
-            elif action == "Press":
-                self.keyboard_controller.press(value)
-            elif action == "Release":
-                self.keyboard_controller.release(value)
-            elif action == "Move":
-                x = value[0]
-                y = value[1]
-                self.mouse_controller.position = (x, y)
-            elif action == "Click":
-                button = value[0]
-                press = value[1]
+                if action == "Delay":
+                    time.sleep(value/1_000)
+                elif action == "Press":
+                    self.keyboard_controller.press(value)
+                elif action == "Release":
+                    self.keyboard_controller.release(value)
+                elif action == "Move":
+                    x = value[0]
+                    y = value[1]
+                    self.mouse_controller.position = (x, y)
+                elif action == "Click":
+                    button = value[0]
+                    press = value[1]
 
-                if button == "Button.left":
-                    button = Button.left
-                elif button == "Button.right":
-                    button = Button.right
+                    if button == "Button.left":
+                        button = Button.left
+                    elif button == "Button.right":
+                        button = Button.right
 
-                if press:
-                    self.mouse_controller.press(button)
-                else:
-                    self.mouse_controller.release(button)
+                    if press:
+                        self.mouse_controller.press(button)
+                    else:
+                        self.mouse_controller.release(button)
 
         self.stop()
 
@@ -444,6 +448,7 @@ class MainWindow(QMainWindow):
         self.replay_button.setText("Replay")
 
     def ReplayButton(self):
+        global macro_working
         if len(macro_record) > 0:
             for i, item in enumerate(threads_array):
                 if item[0] == "ThreadReplay":
@@ -456,10 +461,12 @@ class MainWindow(QMainWindow):
                         self.replay_button.setText("Replay")
                         self.cancel_replay = False
                     return
-                
-            replay_thread = ReplayMacro(self)
-            threads_array.append(["ThreadReplay", replay_thread])
-            replay_thread.start()
+
+            if not macro_working:
+                #Puxar o repeat das config avançada dps
+                replay_thread = ReplayMacro(self, repeat=1)
+                threads_array.append(["ThreadReplay", replay_thread])
+                replay_thread.start()
         else:
             self.replay_button.setText("Replay (Empty)")
     
@@ -575,7 +582,6 @@ class EditMacroWindow(QDialog):
 
     def closeWindow(self):
         self.accept()
-
 
 class ConfigWindow(QDialog):
     def __init__(self, parent, aw = 500, ah = 500):

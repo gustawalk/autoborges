@@ -13,6 +13,7 @@
     - [x] User can change the delay between clicks on AutoClicker
     - [x] User can change the action key for AutoClicker
     - [ ] User can change the key that AutoClicker will press
+    - [ ] Change how many times the macro will run
     - [ ] Save your macro
 
 - Urgent:

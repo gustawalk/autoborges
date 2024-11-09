@@ -29,6 +29,10 @@ def create_config_json():
         "AutoClicker": {
             "ClicksDelay": 0.0001,
             "ActionKey": "Key.f9"
+        },
+        "Macro": {
+            "Repeat": 1,
+            "KeepRepeating": False
         }
     }
 
@@ -154,14 +158,17 @@ class ReplayMacro(threading.Thread):
         global macro_record
         global macro_working
 
+        self.config_json = load_config()
+
         self.running = True
         self.parent = parent
         self.daemon = True
         self.macro_working = True
         self.repeat = repeat
+        self.keep_repeating = self.config_json["Macro"]["KeepRepeating"]
 
     def run(self):
-
+        
         for i in range(3, 0, -1):
             self.parent.replay_button.setText(f"Recreating Macro in {i}")
             time.sleep(1)
@@ -171,40 +178,71 @@ class ReplayMacro(threading.Thread):
 
         self.parent.replay_button.setText("Recreating Macro...")
 
+        self.listener = keyboard.Listener(
+            on_press=self.on_press,
+            on_release=self.on_release
+        )
+        self.listener.start()
+
+        self.combo_key = False
+
         if len(threads_array) <= 0:
             self.parent.replay_button.setText("Replay")
             return
         
-        for _ in range(self.repeat):
+        if self.keep_repeating:
+            self.repeat = 0
+
+        count = 0
+
+        while count <= self.repeat:
             for item in macro_record:
-                action = item[0]
-                value = item[1]
+                if self.running:
+                    action = item[0]
+                    value = item[1]
 
-                if action == "Delay":
-                    time.sleep(value/1_000)
-                elif action == "Press":
-                    self.keyboard_controller.press(value)
-                elif action == "Release":
-                    self.keyboard_controller.release(value)
-                elif action == "Move":
-                    x = value[0]
-                    y = value[1]
-                    self.mouse_controller.position = (x, y)
-                elif action == "Click":
-                    button = value[0]
-                    press = value[1]
+                    if action == "Delay":
+                        time.sleep(value/1_000)
+                    elif action == "Press":
+                        self.keyboard_controller.press(value)
+                    elif action == "Release":
+                        self.keyboard_controller.release(value)
+                    elif action == "Move":
+                        x = value[0]
+                        y = value[1]
+                        self.mouse_controller.position = (x, y)
+                    elif action == "Click":
+                        button = value[0]
+                        press = value[1]
 
-                    if button == "Button.left":
-                        button = Button.left
-                    elif button == "Button.right":
-                        button = Button.right
+                        if button == "Button.left":
+                            button = Button.left
+                        elif button == "Button.right":
+                            button = Button.right
 
-                    if press:
-                        self.mouse_controller.press(button)
-                    else:
-                        self.mouse_controller.release(button)
+                        if press:
+                            self.mouse_controller.press(button)
+                        else:
+                            self.mouse_controller.release(button)
+                else:
+                    return
+            if not self.keep_repeating:
+                count += 1
 
         self.stop()
+
+    def on_press(self, key):
+        if key == Key.shift_l:
+            if not self.combo_key:
+                self.combo_key = True
+        
+        if key == Key.esc and self.combo_key:
+            self.stop()
+
+    def on_release(self, key):
+        if key == Key.shift_l:
+            if self.combo_key:
+                self.combo_key = False
 
     def stop(self):
         print("stopping replay")
@@ -212,7 +250,7 @@ class ReplayMacro(threading.Thread):
         macro_working = False
 
         self.running = False
-
+        self.listener.stop()
         self.parent.replay_button.setText("Replay")
         self.parent.cancel_replay = False
 
@@ -286,6 +324,8 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon('autoborges.png'))
 
         self.checkboxs = []
+        self.config_json = load_config()
+        self.config_repeat = self.config_json['Macro']['Repeat']
 
         main_style = """
             QPushButton {
@@ -463,8 +503,7 @@ class MainWindow(QMainWindow):
                     return
 
             if not macro_working:
-                #Puxar o repeat das config avançada dps
-                replay_thread = ReplayMacro(self, repeat=1)
+                replay_thread = ReplayMacro(self, repeat=self.config_repeat)
                 threads_array.append(["ThreadReplay", replay_thread])
                 replay_thread.start()
         else:
@@ -473,6 +512,9 @@ class MainWindow(QMainWindow):
     def ConfigButton(self):
         tela = ConfigWindow(self)
         tela.exec_()
+
+    def UpdateConfigRepeat(self, new_value):
+        self.config_repeat = new_value
 
     def closeEvent(self, event):
         for _, thread in threads_array:
@@ -596,9 +638,11 @@ class ConfigWindow(QDialog):
 
         global threads_array
 
+        self.parent = parent
+
         for item in threads_array:
             if item[0] == "AutoClicker":
-                parent.AutoClickerButton()
+                self.parent.AutoClickerButton()
 
         stylesheet = """
         ConfigWindow {
@@ -641,6 +685,9 @@ class ConfigWindow(QDialog):
 
         #title{
             color: #c5ffca;
+            background-color: #cc00d3;
+            min-width: 465px;
+            border-radius: 20px;
         }
         """
 
@@ -650,8 +697,12 @@ class ConfigWindow(QDialog):
         self.config_json = load_config()
         self.action_key = self.config_json['AutoClicker']['ActionKey']
         self.delay_autoclicker = self.config_json['AutoClicker']['ClicksDelay']
+        self.repeat = self.config_json['Macro']['Repeat']
+        self.full_repeat = self.config_json['Macro']['KeepRepeating']
+
         self.new_key = None
         self.new_delay = None
+        self.new_repeat = None
 
         self.layout = QVBoxLayout()
 
@@ -686,6 +737,33 @@ class ConfigWindow(QDialog):
         h_layout.addWidget(self.delay_range)
 
         self.layout.addLayout(h_layout)
+        
+        h_layout = QHBoxLayout()
+
+        self.macrotitle = QLabel(text="Macro")
+        self.macrotitle.setObjectName("title")
+        self.macrotitle.setFixedSize(150, 40)
+        self.macrotitle.setAlignment(QtCore.Qt.AlignCenter)
+        self.layout.addWidget(self.macrotitle)
+
+        self.repeat_label = QLabel(text="Repeat")
+        h_layout.addWidget(self.repeat_label)
+
+        self.repeat_range = QTextEdit()
+        self.repeat_range.setPlaceholderText(str(self.repeat))
+        self.repeat_range.setFixedHeight(35)
+        self.repeat_range.setFixedWidth(200)
+        if self.full_repeat:
+            self.repeat_range.setDisabled(True)
+        h_layout.addWidget(self.repeat_range)
+
+        self.repeat_checkbox = QCheckBox(self, text="Keep repeating")
+        if self.full_repeat:
+            self.repeat_checkbox.setChecked(True)
+        self.repeat_checkbox.stateChanged.connect(self.RepeatCheckboxChange)
+        h_layout.addWidget(self.repeat_checkbox)
+
+        self.layout.addLayout(h_layout)
 
         self.save_button = QPushButton("Salvar", self)
         self.save_button.clicked.connect(self.save_config)
@@ -694,6 +772,14 @@ class ConfigWindow(QDialog):
         self.setLayout(self.layout)
 
         self.setStyleSheet(stylesheet)
+
+    def RepeatCheckboxChange(self):
+        if self.full_repeat:
+            self.full_repeat = False
+            self.repeat_range.setDisabled(False)
+        else:
+            self.full_repeat = True
+            self.repeat_range.setDisabled(True)
 
     def ChangeActionKeyAC(self):
         self.action_key_autoclicker.setText("...")
@@ -715,11 +801,22 @@ class ConfigWindow(QDialog):
             self.new_delay = value
         except ValueError:
             pass
+        
+        try:
+            value = int(self.repeat_range.toPlainText())
+            self.new_repeat = value
+        except ValueError:
+            pass
 
         if self.new_key != None:
             self.config_json["AutoClicker"]["ActionKey"] = self.new_key
         if self.new_delay != None:
             self.config_json["AutoClicker"]["ClicksDelay"] = self.new_delay
+        if self.new_repeat != None:
+            self.config_json["Macro"]["Repeat"] = self.new_repeat
+            self.parent.UpdateConfigRepeat(self.new_repeat)
+        
+        self.config_json["Macro"]["KeepRepeating"] = self.full_repeat
 
         save_config(self.config_json)
         self.accept()

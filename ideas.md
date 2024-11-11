@@ -7,7 +7,7 @@
 - Functionalities:
     - [x] AutoClicker
     - [x] Record keyboard
-    - [ ] Edit your macro (removing some action)
+    - [x] Edit your macro (removing some action)
     - [x] Combo key to stop macro replay (Left Shift + ESC)
 
 - Advanced:
@@ -17,6 +17,7 @@
     - [x] Change how many times the macro will run
     - [x] Checkbox to keep the macro repeating until the user stop
     - [ ] Save your macro
+    - [ ] Load your macro
 
 - Urgent:
     - [x] Fix the delay on mouse listening its causing some lagging (?)

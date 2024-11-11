@@ -13,7 +13,7 @@ import pathlib
 import json
 
 main_path = f"{pathlib.Path.home()}/BorgeBOT"
-config_file = "config.json"
+config_file = "config.borge"
 
 def create_default_folders():
     if not os.path.exists(main_path):
@@ -116,6 +116,10 @@ class RecordMacro(threading.Thread):
 
     def kb_on_press(self, key):
         if self.running:
+            if key == Key.ctrl_r:
+                self.stop()
+                return
+
             macro_record.append(["Delay", self.delay])
             try:
                 macro_record.append(["Press", key.char])
@@ -149,6 +153,7 @@ class RecordMacro(threading.Thread):
             pass
         self.delay = 0
         self.running = False
+        self.parent.record_button.setText("Record")
 
 class ReplayMacro(threading.Thread):
     def __init__(self, parent, repeat):
@@ -191,9 +196,9 @@ class ReplayMacro(threading.Thread):
             return
         
         if self.keep_repeating:
-            self.repeat = 0
+            self.repeat = 1
 
-        count = 0
+        count = 1
 
         while count <= self.repeat:
             for item in macro_record:
@@ -689,6 +694,33 @@ class ConfigWindow(QDialog):
             min-width: 465px;
             border-radius: 20px;
         }
+
+        QCheckBox {
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: 500;
+            background-color: #4CAF50;
+            padding: 5px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        QCheckBox::hover{
+            color: #275f29;
+        }
+        QCheckBox::indicator {
+            width: 20px;
+            height: 20px;
+        }
+        QCheckBox::indicator:unchecked {
+            border: 2px solid #ffffff;
+            background-color: #a31010;
+            border-radius: 4px;
+        }
+        QCheckBox::indicator:checked {
+            border: 2px solid #ffffff;
+            background-color: #275f29;
+            border-radius: 4px;
+        }
         """
 
         self.setWindowTitle("Advanced Configuration")
@@ -757,7 +789,7 @@ class ConfigWindow(QDialog):
             self.repeat_range.setDisabled(True)
         h_layout.addWidget(self.repeat_range)
 
-        self.repeat_checkbox = QCheckBox(self, text="Keep repeating")
+        self.repeat_checkbox = QCheckBox(self, text="Infinite")
         if self.full_repeat:
             self.repeat_checkbox.setChecked(True)
         self.repeat_checkbox.stateChanged.connect(self.RepeatCheckboxChange)
@@ -765,7 +797,19 @@ class ConfigWindow(QDialog):
 
         self.layout.addLayout(h_layout)
 
-        self.save_button = QPushButton("Salvar", self)
+        h_layout = QHBoxLayout()
+
+        # open a textedit to choose macro name and save on BorgeBOT/Macro/{name}
+        self.save_macro = QPushButton(text="Save Macro")
+        h_layout.addWidget(self.save_macro)
+
+        # open a search folder
+        self.load_macro = QPushButton(text="Load Macro")
+        h_layout.addWidget(self.load_macro)
+
+        self.layout.addLayout(h_layout)
+
+        self.save_button = QPushButton("Save Changes", self)
         self.save_button.clicked.connect(self.save_config)
         self.layout.addWidget(self.save_button)
 

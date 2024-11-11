@@ -16,8 +16,8 @@
     - [ ] User can change the key that AutoClicker will press
     - [x] Change how many times the macro will run
     - [x] Checkbox to keep the macro repeating until the user stop
-    - [ ] Save your macro
-    - [ ] Load your macro
+    - [x] Save your macro
+    - [x] Load your macro
 
 - Urgent:
     - [x] Fix the delay on mouse listening its causing some lagging (?)

@@ -13,11 +13,14 @@ import pathlib
 import json
 
 main_path = f"{pathlib.Path.home()}/BorgeBOT"
+macro_main_path = f"{main_path}/Macro"
 config_file = "config.borge"
 
 def create_default_folders():
     if not os.path.exists(main_path):
         os.mkdir(main_path)
+    if not os.path.exists(macro_main_path):
+        os.mkdir(macro_main_path)
 
 def create_config_json():
     config_path = f"{main_path}/{config_file}"
@@ -97,16 +100,16 @@ class RecordMacro(threading.Thread):
 
     def mouse_on_move(self, x, y):
         if self.running:
-            macro_record.append(["Delay", self.delay])
-            macro_record.append(["Move", (x, y)])
+            macro_record.append(["D", self.delay])
+            macro_record.append(["M", (x, y)])
             self.delay_mouse_pos = 0
             self.delay = 0
 
     
     def mouse_on_click(self, x, y, button, pressed):
         if self.running:
-            macro_record.append(["Delay", self.delay])
-            macro_record.append(["Click", (str(button), pressed)])
+            macro_record.append(["D", self.delay])
+            macro_record.append(["C", (str(button), pressed)])
             self.delay = 0
         
     def mouse_on_scroll(self, x, y, dx, dy):
@@ -120,21 +123,21 @@ class RecordMacro(threading.Thread):
                 self.stop()
                 return
 
-            macro_record.append(["Delay", self.delay])
+            macro_record.append(["D", self.delay])
             try:
-                macro_record.append(["Press", key.char])
+                macro_record.append(["P", key.char])
             except AttributeError:
-                macro_record.append(["Press", key])
+                macro_record.append(["P", key])
 
             self.delay = 0
 
     def kb_on_release(self, key):
         if self.running:
-            macro_record.append(["Delay", self.delay])
+            macro_record.append(["D", self.delay])
             try:
-                macro_record.append(["Release", key.char])
+                macro_record.append(["R", key.char])
             except AttributeError:
-                macro_record.append(["Release", key])
+                macro_record.append(["R", key])
 
             self.delay = 0
 
@@ -206,17 +209,17 @@ class ReplayMacro(threading.Thread):
                     action = item[0]
                     value = item[1]
 
-                    if action == "Delay":
+                    if action == "D":
                         time.sleep(value/1_000)
-                    elif action == "Press":
+                    elif action == "P":
                         self.keyboard_controller.press(value)
-                    elif action == "Release":
+                    elif action == "R":
                         self.keyboard_controller.release(value)
-                    elif action == "Move":
+                    elif action == "M":
                         x = value[0]
                         y = value[1]
                         self.mouse_controller.position = (x, y)
-                    elif action == "Click":
+                    elif action == "C":
                         button = value[0]
                         press = value[1]
 
@@ -799,12 +802,12 @@ class ConfigWindow(QDialog):
 
         h_layout = QHBoxLayout()
 
-        # open a textedit to choose macro name and save on BorgeBOT/Macro/{name}
         self.save_macro = QPushButton(text="Save Macro")
+        self.save_macro.clicked.connect(self.MacroFileSave)
         h_layout.addWidget(self.save_macro)
 
-        # open a search folder
         self.load_macro = QPushButton(text="Load Macro")
+        self.load_macro.clicked.connect(self.MacroFileLoad)
         h_layout.addWidget(self.load_macro)
 
         self.layout.addLayout(h_layout)
@@ -816,6 +819,22 @@ class ConfigWindow(QDialog):
         self.setLayout(self.layout)
 
         self.setStyleSheet(stylesheet)
+
+    def MacroFileSave(self):
+        savemacro, _ = QFileDialog.getSaveFileName(self, "Save Macro", f"{macro_main_path}", "files BORGE (*.borge)")
+        if savemacro:
+            if not savemacro.endswith(".borge"):
+                savemacro += ".borge"
+            with open(savemacro, 'w') as file:
+                file.write(str(macro_record))
+    
+    def MacroFileLoad(self):
+        global macro_record
+
+        openmacro, _ = QFileDialog.getOpenFileName(self, "Open Macro", f"{macro_main_path}", "files BORGE (*.borge)")
+        if openmacro:
+            with open(openmacro, 'r') as file:
+                macro_record = eval(file.read())
 
     def RepeatCheckboxChange(self):
         if self.full_repeat:

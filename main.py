@@ -11,6 +11,7 @@ from functools import partial
 import os
 import pathlib
 import json
+import ast
 
 main_path = f"{pathlib.Path.home()}/BorgeBOT"
 macro_main_path = f"{main_path}/Macro"
@@ -52,7 +53,7 @@ def save_config(config):
         json.dump(config, file, indent=4)
 
 class RecordMacro(threading.Thread):
-    def __init__(self, parent, keyboard, mouse):
+    def __init__(self, parent, keyboard, mouse, delay):
         super().__init__()
         global macro_record
 
@@ -63,6 +64,7 @@ class RecordMacro(threading.Thread):
 
         self.keyboard_active = keyboard
         self.mouse_active = mouse
+        self.delay_active = delay
         self.parent = parent
 
     def run(self):
@@ -94,13 +96,15 @@ class RecordMacro(threading.Thread):
             self.timer_thread = threading.Thread(target=self.delay_timer, daemon=True).start()
 
     def delay_timer(self):
-        while self.running:
-            self.delay += 1
-            time.sleep(0.001)
+        if self.delay_active:
+            while self.running:
+                self.delay += 1
+                time.sleep(0.001)
 
     def mouse_on_move(self, x, y):
         if self.running:
-            macro_record.append(["D", self.delay])
+            if self.delay_active:
+                macro_record.append(["D", self.delay])
             macro_record.append(["M", (x, y)])
             self.delay_mouse_pos = 0
             self.delay = 0
@@ -108,7 +112,8 @@ class RecordMacro(threading.Thread):
     
     def mouse_on_click(self, x, y, button, pressed):
         if self.running:
-            macro_record.append(["D", self.delay])
+            if self.delay_active:
+                macro_record.append(["D", self.delay])
             macro_record.append(["C", (str(button), pressed)])
             self.delay = 0
         
@@ -123,7 +128,8 @@ class RecordMacro(threading.Thread):
                 self.stop()
                 return
 
-            macro_record.append(["D", self.delay])
+            if self.delay_active:
+                macro_record.append(["D", self.delay])
             try:
                 macro_record.append(["P", key.char])
             except AttributeError:
@@ -133,7 +139,8 @@ class RecordMacro(threading.Thread):
 
     def kb_on_release(self, key):
         if self.running:
-            macro_record.append(["D", self.delay])
+            if self.delay_active:
+                macro_record.append(["D", self.delay])
             try:
                 macro_record.append(["R", key.char])
             except AttributeError:
@@ -178,6 +185,8 @@ class ReplayMacro(threading.Thread):
     def run(self):
         
         for i in range(3, 0, -1):
+            if not self.running:
+                return
             self.parent.replay_button.setText(f"Recreating Macro in {i}")
             time.sleep(1)
         
@@ -258,7 +267,10 @@ class ReplayMacro(threading.Thread):
         macro_working = False
 
         self.running = False
-        self.listener.stop()
+        try:
+            self.listener.stop()
+        except Exception:
+            pass
         self.parent.replay_button.setText("Replay")
         self.parent.cancel_replay = False
 
@@ -402,7 +414,7 @@ class MainWindow(QMainWindow):
         self.is_recording = False
 
         checkbox_layout = QHBoxLayout()
-        possible_records = ['Keyboard', 'Mouse']
+        possible_records = ['Keyboard', 'Mouse', 'Delay']
         for record in possible_records:
             item = QCheckBox(record)
             item.setStyleSheet(main_style)
@@ -462,6 +474,7 @@ class MainWindow(QMainWindow):
     def RecordButton(self):
         mouse_check = False
         keyboard_check = False
+        delay_check = False
 
         for i, item in enumerate(threads_array):
             thread = item[1]
@@ -484,8 +497,11 @@ class MainWindow(QMainWindow):
             elif code == "Mouse" and id_checkbox.isChecked():
                 print("mouse true")
                 mouse_check = True
+            elif code == "Delay" and id_checkbox.isChecked():
+                print("Delay true")
+                delay_check = True
 
-        all_record = RecordMacro(self, keyboard_check, mouse_check)
+        all_record = RecordMacro(self, keyboard_check, mouse_check, delay_check)
         threads_array.append(["Macro", all_record])
         all_record.start()
 
@@ -601,6 +617,17 @@ class EditMacroWindow(QDialog):
         for i, item in enumerate(macro_record):
             action = item[0]
             value = item[1]
+
+            if action == "D":
+                action = "Delay"
+            elif action == "M":
+                action = "Move"
+            elif action == "C":
+                action = "Click"
+            elif action == "P":
+                action = "Press"
+            elif action == "R":
+                action = "Release"
 
             label = QLabel(f"{action}: {value}")
             label.mousePressEvent = partial(self.item_clicked, i, label)
@@ -832,9 +859,25 @@ class ConfigWindow(QDialog):
         global macro_record
 
         openmacro, _ = QFileDialog.getOpenFileName(self, "Open Macro", f"{macro_main_path}", "files BORGE (*.borge)")
+        chunk_size = 10000
         if openmacro:
-            with open(openmacro, 'r') as file:
-                macro_record = eval(file.read())
+            try:
+                macro_record = ""
+                with open(openmacro, 'r') as file:
+                    chunk = file.read(chunk_size)
+
+                    while chunk:
+                        macro_record += chunk
+                        chunk = file.read(chunk_size)
+                print(macro_record)
+
+                macro_record = ast.literal_eval(macro_record)
+
+                print("Processing complete")
+            except Exception as e:
+                print(f"An error occurred while reading the file: {str(e)}")
+        else:
+            print("No file selected.")
 
     def RepeatCheckboxChange(self):
         if self.full_repeat:

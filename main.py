@@ -341,7 +341,7 @@ class MainWindow(QMainWindow):
         self.setFixedSize(aw, ah)
         self.setGeometry(50, 50, self.aw, self.ah)
         self.setWindowTitle("AutoBorges")
-        self.setWindowIcon(QIcon('autoborges.png'))
+        self.setWindowIcon(QIcon('src/autoborges.png'))
 
         self.checkboxs = []
         self.config_json = load_config()
@@ -510,6 +510,7 @@ class MainWindow(QMainWindow):
         if len(macro_record) > 0:
             macro_record.clear()
         self.replay_button.setText("Replay")
+        self.setWindowTitle("AutoBorges")
 
     def ReplayButton(self):
         global macro_working
@@ -559,7 +560,7 @@ class EditMacroWindow(QDialog):
 
         self.setStyleSheet("""
             EditMacroWindow {
-                background-image: url("mimosacomnarget.jpg"); 
+                background-image: url("src/mimosacomnarget.jpg"); 
                 background-repeat: no-repeat; 
                 background-position: center;
             }
@@ -681,7 +682,7 @@ class ConfigWindow(QDialog):
 
         stylesheet = """
         ConfigWindow {
-            background-image: url("gedagedigedagedao.png"); 
+            background-image: url("src/gedagedigedagedao.png"); 
             background-position: center;
         }
 
@@ -869,11 +870,15 @@ class ConfigWindow(QDialog):
                     while chunk:
                         macro_record += chunk
                         chunk = file.read(chunk_size)
-                print(macro_record)
 
                 macro_record = ast.literal_eval(macro_record)
 
                 print("Processing complete")
+
+                macro_file_name = openmacro.split('/')
+                macro_file_name = macro_file_name[len(macro_file_name)-1]
+
+                self.parent.setWindowTitle(f"AutoBorges - {macro_file_name}")
             except Exception as e:
                 print(f"An error occurred while reading the file: {str(e)}")
         else:
@@ -932,7 +937,7 @@ if __name__ == '__main__':
     create_config_json()
     stylesheet = """
     MainWindow {
-        background-image: url("autoborges.png"); 
+        background-image: url("src/autoborges.png"); 
         background-repeat: no-repeat; 
         background-position: center;
     }
@@ -941,6 +946,7 @@ if __name__ == '__main__':
     threads_array = []
     macro_record = []
     macro_working = False
+    file_macro_using = ""
 
     app = QApplication(sys.argv)
     app.setStyleSheet(stylesheet)

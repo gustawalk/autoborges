@@ -29,7 +29,8 @@ jobs:
     - name: Build executable
       run: |
         pip install pyinstaller
-        pyinstaller --onefile --windowed main.py
+        pyinstaller --onefile --windowed --add-data "src/*.png:src" main.py
+      shell: cmd
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4

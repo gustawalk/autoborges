@@ -17,6 +17,13 @@ main_path = f"{pathlib.Path.home()}/BorgeBOT"
 macro_main_path = f"{main_path}/Macro"
 config_file = "config.borge"
 
+def resource_path(relative_path):
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 def create_default_folders():
     if not os.path.exists(main_path):
         os.mkdir(main_path)
@@ -341,7 +348,7 @@ class MainWindow(QMainWindow):
         self.setFixedSize(aw, ah)
         self.setGeometry(50, 50, self.aw, self.ah)
         self.setWindowTitle("AutoBorges")
-        self.setWindowIcon(QIcon('src/autoborges.png'))
+        self.setWindowIcon(QIcon(f"{resource_path("src/autoborges.png")}"))
 
         self.checkboxs = []
         self.config_json = load_config()
@@ -558,52 +565,52 @@ class EditMacroWindow(QDialog):
         self.setGeometry(300, 300, 400, 300)
         self.setFixedSize(1000, 600)
 
-        self.setStyleSheet("""
-            EditMacroWindow {
-                background-image: url("src/mimosacomnarget.jpg"); 
+        self.setStyleSheet(f"""
+            EditMacroWindow {{
+                background-image: url("{resource_path("src/mimosacomnarget.png")}"); 
                 background-repeat: no-repeat; 
                 background-position: center;
-            }
+            }}
 
-            QScrollArea {
+            QScrollArea {{
                 background: transparent;
-            }
+            }}
 
-            QLabel {
+            QLabel {{
                 font-size: 18px;
                 font-weight: bold;
                 padding: 8px;
                 border-radius: 5px;
-            }
+            }}
             
-            QPushButton {
+            QPushButton {{
                 padding: 10px;
                 font-size: 14px;
                 background-color: #4CAF50;
                 color: white;
                 border: none;
                 border-radius: 5px;
-            }
+            }}
 
-            QPushButton:hover {
+            QPushButton:hover {{
                 background-color: #45a049;
-            }
+            }}
 
-            #stay{
+            #stay{{
                 color: #ffffff;
                 background-color: #30ca44;
-            }
-            #remove{
+            }}
+            #remove{{
                 color: #ff0000;
                 background-color: #007c1b;
-            }
+            }}
 
-            #stay:hover{
+            #stay:hover{{
                 color: #2cd450
-            }
-            #remove:hover{
+            }}
+            #remove:hover{{
                 color: #007a1b
-            }
+            }}
         """)
 
         layout = QVBoxLayout(self)
@@ -680,53 +687,53 @@ class ConfigWindow(QDialog):
             if item[0] == "AutoClicker":
                 self.parent.AutoClickerButton()
 
-        stylesheet = """
-        ConfigWindow {
-            background-image: url("src/gedagedigedagedao.png"); 
+        stylesheet = f"""
+        ConfigWindow {{
+            background-image: url("{resource_path("src/gedagedigedagedao.png")}"); 
             background-position: center;
-        }
+        }}
 
-        QLabel{
+        QLabel{{
             font-size: 18px;
             color: #f7f7f7;
             font-weight: bold;
             padding: 3px;
             background-color: #1e471f;
             border-radius: 15px;
-        }
+        }}
 
-        QPushButton {
+        QPushButton {{
             background-color: #4CAF50;
             color: white;
             border: none;
             padding: 8px 16px;
             font-size: 18px;
             border-radius: 8px;
-        }
-        QPushButton:hover {
+        }}
+        QPushButton:hover {{
             background-color: #2c702f;
-        }
-        QPushButton:pressed {
+        }}
+        QPushButton:pressed {{
             background-color: #163a17;
-        }
+        }}
 
-        QTextEdit {
+        QTextEdit {{
             font-size: 14px;
             color: #706464;
             background-color: #f0f0f0;
             border: 2px solid #4CAF50;
             border-radius: 10px;
             selection-background-color: #A5D6A7;
-        }
+        }}
 
-        #title{
+        #title{{
             color: #c5ffca;
             background-color: #cc00d3;
             min-width: 465px;
             border-radius: 20px;
-        }
+        }}
 
-        QCheckBox {
+        QCheckBox {{
             color: #ffffff;
             font-size: 18px;
             font-weight: 500;
@@ -734,24 +741,24 @@ class ConfigWindow(QDialog):
             padding: 5px;
             border-radius: 6px;
             text-align: center;
-        }
-        QCheckBox::hover{
+        }}
+        QCheckBox::hover{{
             color: #275f29;
-        }
-        QCheckBox::indicator {
+        }}
+        QCheckBox::indicator {{
             width: 20px;
             height: 20px;
-        }
-        QCheckBox::indicator:unchecked {
+        }}
+        QCheckBox::indicator:unchecked {{
             border: 2px solid #ffffff;
             background-color: #a31010;
             border-radius: 4px;
-        }
-        QCheckBox::indicator:checked {
+        }}
+        QCheckBox::indicator:checked {{
             border: 2px solid #ffffff;
             background-color: #275f29;
             border-radius: 4px;
-        }
+        }}
         """
 
         self.setWindowTitle("Advanced Configuration")
@@ -935,12 +942,12 @@ class ConfigWindow(QDialog):
 if __name__ == '__main__':
     create_default_folders()
     create_config_json()
-    stylesheet = """
-    MainWindow {
-        background-image: url("src/autoborges.png"); 
+    stylesheet = f"""
+    MainWindow {{
+        background-image: url("{resource_path("src/autoborges.png")}"); 
         background-repeat: no-repeat; 
         background-position: center;
-    }
+    }}
     """
 
     threads_array = []

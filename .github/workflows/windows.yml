@@ -18,20 +18,22 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.x'
-        cache: 'pip'
     
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install wheel setuptools
         pip install -r requirements.txt
         
     - name: Build executable
       run: |
-        pip install pyinstaller
-        pyinstaller --onefile --windowed --add-data "src/*.png:src" main.py
+        pyinstaller --onefile --add-data "src/*.png;src" main.py
       shell: cmd
-        
+
+    - name: Verify artifact
+      run: |
+        if not exist dist\*.exe exit 1
+      shell: cmd
+
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:

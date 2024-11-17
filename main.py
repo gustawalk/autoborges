@@ -728,7 +728,7 @@ class ConfigWindow(QDialog):
 
         #title{{
             color: #c5ffca;
-            background-color: #cc00d3;
+            background-color: #48a000;
             min-width: 465px;
             border-radius: 20px;
         }}

@@ -11,6 +11,7 @@ from functools import partial
 import os
 import pathlib
 import json
+import platform
 import ast
 
 main_path = f"{pathlib.Path.home()}/BorgeBOT"
@@ -22,7 +23,12 @@ def resource_path(relative_path):
         base_path = sys._MEIPASS
     else:
         base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
+
+    file = os.path.join(base_path, relative_path)
+    if platform.system() == "Windows":
+        file = file.replace("\\", "/")
+
+    return file
 
 def create_default_folders():
     if not os.path.exists(main_path):
@@ -561,7 +567,7 @@ class EditMacroWindow(QDialog):
         self.index_to_remove = set()
         
         self.setWindowTitle("Edit Your Macro")
-        self.setWindowIcon(QIcon('autoborges.png'))
+        self.setWindowIcon(QIcon(resource_path("src/autoborges.png")))
         self.setGeometry(300, 300, 400, 300)
         self.setFixedSize(1000, 600)
 
@@ -677,7 +683,7 @@ class ConfigWindow(QDialog):
 
         self.setFixedSize(aw, ah)
         self.setGeometry(50, 50, self.aw, self.ah)
-        self.setWindowIcon(QIcon('autoborges.png'))
+        self.setWindowIcon(QIcon(resource_path("src/autoborges.png")))
 
         global threads_array
 

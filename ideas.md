@@ -23,3 +23,4 @@
     - [x] Fix the delay on mouse listening its causing some lagging (?)
     - [ ] Change how the delay works
     - [x] Change to only one array of actions
+    - [ ] Fix stylesheet of windows build

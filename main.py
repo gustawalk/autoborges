@@ -141,23 +141,28 @@ class RecordMacro(threading.Thread):
                 self.stop()
                 return
 
+            print(key)
             if self.delay_active:
                 macro_record.append(["D", self.delay])
             try:
                 macro_record.append(["P", key.char])
             except AttributeError:
-                macro_record.append(["P", key])
+                key_str = str(key)
+                macro_record.append(["P", key_str])
 
             self.delay = 0
+
 
     def kb_on_release(self, key):
         if self.running:
             if self.delay_active:
                 macro_record.append(["D", self.delay])
+
             try:
                 macro_record.append(["R", key.char])
             except AttributeError:
-                macro_record.append(["R", key])
+                key_str = str(key)
+                macro_record.append(["R", key_str])
 
             self.delay = 0
 
@@ -230,13 +235,19 @@ class ReplayMacro(threading.Thread):
                 if self.running:
                     action = item[0]
                     value = item[1]
-
+                
                     if action == "D":
                         time.sleep(value/1_000)
                     elif action == "P":
-                        self.keyboard_controller.press(value)
+                        try:
+                            self.keyboard_controller.press(value)
+                        except ValueError:
+                            self.keyboard_controller.press(eval(value))
                     elif action == "R":
-                        self.keyboard_controller.release(value)
+                        try:
+                            self.keyboard_controller.release(value)
+                        except ValueError:
+                            self.keyboard_controller.release(eval(value))
                     elif action == "M":
                         x = value[0]
                         y = value[1]
@@ -873,18 +884,13 @@ class ConfigWindow(QDialog):
         global macro_record
 
         openmacro, _ = QFileDialog.getOpenFileName(self, "Open Macro", f"{macro_main_path}", "files BORGE (*.borge)")
-        chunk_size = 10000
         if openmacro:
             try:
                 macro_record = ""
-                with open(openmacro, 'r') as file:
-                    chunk = file.read(chunk_size)
+                with open(openmacro, 'r') as f:
+                    content = f.read()
 
-                    while chunk:
-                        macro_record += chunk
-                        chunk = file.read(chunk_size)
-
-                macro_record = ast.literal_eval(macro_record)
+                macro_record = eval(content)
 
                 print("Processing complete")
 
